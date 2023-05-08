@@ -46,9 +46,7 @@ struct vm_area_struct *get_vma_by_num(struct mm_struct *mm, int vmaid)
   
   while (vmait < vmaid)
   {
-    if(pvma == NULL)
-	  return NULL;
-
+    if(pvma == NULL) return NULL;
     pvma = pvma->vm_next;
   }
 
@@ -80,7 +78,7 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
 {
   /*Allocate at the toproof */
   struct vm_rg_struct rgnode;
-
+  // neu co vung virtuaal memory trống
   if (get_free_vmrg_area(caller, vmaid, size, &rgnode) == 0)
   {
     caller->mm->symrgtbl[rgid].rg_start = rgnode.rg_start;
@@ -92,25 +90,24 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
   }
 
   /* TODO get_free_vmrg_area FAILED handle the region management (Fig.6)*/
-
+  //else
   /*Attempt to increate limit to get space */
   struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, vmaid);
   int inc_sz = PAGING_PAGE_ALIGNSZ(size);
   //int inc_limit_ret
   int old_sbrk ;
-
-  old_sbrk = cur_vma->sbrk;
-
-  /* TODO INCREASE THE LIMIT
-   * inc_vma_limit(caller, vmaid, inc_sz)
-   */
-  inc_vma_limit(caller, vmaid, inc_sz);
-
+  if (cur_vma != NULL){
+    old_sbrk = cur_vma->sbrk;
+  }
+  /* TODO INCREASE THE LIMIT */
+  //inc_vma_limit succeed
+  if (inc_vma_limit(caller, vmaid, inc_sz) == 0){
   /*Successful increase limit */
-  caller->mm->symrgtbl[rgid].rg_start = old_sbrk;
-  caller->mm->symrgtbl[rgid].rg_end = old_sbrk + size;
-
-  *alloc_addr = old_sbrk;
+    caller->mm->symrgtbl[rgid].rg_start = old_sbrk;
+    caller->mm->symrgtbl[rgid].rg_end = old_sbrk + size;
+    //gan dia chi bat dau bang old_sbrk
+    *alloc_addr = old_sbrk;
+  }
 
   return 0;
 }
@@ -130,7 +127,8 @@ int __free(struct pcb_t *caller, int vmaid, int rgid)
     return -1;
 
   /* TODO: Manage the collect freed region to freerg_list */
-
+  rgnode.rg_start = caller->mm->symrgtbl[rgid].rg_start;
+  rgnode.rg_end = caller->mm->symrgtbl[rgid].rg_end;
   /*enlist the obsoleted memory region */
   enlist_vm_freerg_list(caller->mm, rgnode);
 
@@ -190,12 +188,12 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
 
     /* Do swap frame from MEMRAM to MEMSWP and vice versa*/
     /* Copy victim frame to swap */
-    //__swap_cp_page();
+    __swap_cp_page(caller->mram, vicpgn ,*caller->mswp, swpfpn);
     /* Copy target frame from swap to mem */
-    //__swap_cp_page();
+    // __swap_cp_page(*caller->mswp, tgtfpn, caller->mram, vicpgn);
 
     /* Update page table */
-    //pte_set_swap() &mm->pgd;
+    pte_set_swap(&pte, 4, 10);
 
     /* Update its online status of the target page */
     //pte_set_fpn() & mm->pgd[pgn];
@@ -226,7 +224,7 @@ int pg_getval(struct mm_struct *mm, int addr, BYTE *data, struct pcb_t *caller)
     return -1; /* invalid page access */
 
   int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
-
+  // printf("check data from read  %d\n", phyaddr);
   MEMPHY_read(caller->mram,phyaddr, data);
 
   return 0;
@@ -249,8 +247,8 @@ int pg_setval(struct mm_struct *mm, int addr, BYTE value, struct pcb_t *caller)
     return -1; /* invalid page access */
 
   int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
-
-  MEMPHY_write(caller->mram,phyaddr, value);
+  // printf("check data from write  %d\n", phyaddr);
+  MEMPHY_write(caller->mram, phyaddr, value);
 
    return 0;
 }
@@ -271,7 +269,7 @@ int __read(struct pcb_t *caller, int vmaid, int rgid, int offset, BYTE *data)
 
   if(currg == NULL || cur_vma == NULL) /* Invalid memory identify */
 	  return -1;
-
+  // printf("check data read %d", caller->mram->storage[currg->rg_start + offset]);
   pg_getval(caller->mm, currg->rg_start + offset, data, caller);
 
   return 0;
@@ -292,7 +290,7 @@ int pgread(
 #ifdef IODUMP
   printf("read region=%d offset=%d value=%d\n", source, offset, data);
 #ifdef PAGETBL_DUMP
-  print_pgtbl(proc, 0, -1); //print max TBL
+  print_pgtbl(proc, 0, 1024); //print max TBL
 #endif
   MEMPHY_dump(proc->mram);
 #endif
@@ -318,7 +316,7 @@ int __write(struct pcb_t *caller, int vmaid, int rgid, int offset, BYTE value)
 	  return -1;
 
   pg_setval(caller->mm, currg->rg_start + offset, value, caller);
-
+  // printf("check data write %d", caller->mram->storage[currg->rg_start + offset]);
   return 0;
 }
 
@@ -332,7 +330,7 @@ int pgwrite(
 #ifdef IODUMP
   printf("write region=%d offset=%d value=%d\n", destination, offset, data);
 #ifdef PAGETBL_DUMP
-  print_pgtbl(proc, 0, -1); //print max TBL
+  print_pgtbl(proc, 0, 1024); //print max TBL
 #endif
   MEMPHY_dump(proc->mram);
 #endif
@@ -399,10 +397,15 @@ struct vm_rg_struct* get_vm_area_node_at_brk(struct pcb_t *caller, int vmaid, in
  */
 int validate_overlap_vm_area(struct pcb_t *caller, int vmaid, int vmastart, int vmaend)
 {
-  //struct vm_area_struct *vma = caller->mm->mmap;
+  struct vm_area_struct *vma = caller->mm->mmap;
 
   /* TODO validate the planned memory area is not overlapped */
-
+  while (vma != NULL) {
+    if (!(vmastart > vma->vm_end || vmaend < vma->vm_start)){
+      return -1;
+    }
+    vma = vma->vm_next;
+  }
   return 0;
 }
 
@@ -447,6 +450,14 @@ int find_victim_page(struct mm_struct *mm, int *retpgn)
   struct pgn_t *pg = mm->fifo_pgn;
 
   /* TODO: Implement the theorical mechanism to find the victim page */
+   /* Find the page at the head of the FIFO queue */
+   if (pg != NULL){
+      *retpgn = pg->pgn;
+
+  /* Remove the page from the FIFO queue */
+      mm->fifo_pgn = pg->pg_next;
+   }
+
 
   free(pg);
 

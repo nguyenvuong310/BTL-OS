@@ -99,6 +99,8 @@ int vmap_page_range(struct pcb_t *caller, // process call
    *      [addr to addr + pgnum*PAGING_PAGESZ
    *      in page table caller->mm->pgd[]
    */
+  addr = addr + pgnum * PAGING_PAGESZ;
+  
 
    /* Tracking for later page replacement activities (if needed)
     * Enqueue new usage page */
@@ -322,7 +324,7 @@ int print_pgtbl(struct pcb_t *caller, uint32_t start, uint32_t end)
 {
   int pgn_start,pgn_end;
   int pgit;
-
+  //printf("check end: %d ", end);
   if(end == -1){
     pgn_start = 0;
     struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, 0);
@@ -335,7 +337,7 @@ int print_pgtbl(struct pcb_t *caller, uint32_t start, uint32_t end)
   if (caller == NULL) {printf("NULL caller\n"); return -1;}
     printf("\n");
 
-
+  //printf("check: %d - %d\n", pgn_start, pgn_end);
   for(pgit = pgn_start; pgit < pgn_end; pgit++)
   {
      printf("%08ld: %08x\n", pgit * sizeof(uint32_t), caller->mm->pgd[pgit]);
