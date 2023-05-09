@@ -90,6 +90,7 @@ struct vm_rg_struct *get_symrg_byid(struct mm_struct *mm, int rgid)
 int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr)
 {
     /*Allocate at the toproof */
+    //printf("id region %d\n", rgid);
     struct vm_rg_struct rgnode;
 
     if (get_free_vmrg_area(caller, vmaid, size, &rgnode) == 0)
@@ -126,7 +127,7 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
     caller->mm->symrgtbl[rgid].rg_end = old_sbrk + size;
 
     *alloc_addr = old_sbrk;
-
+    printf("start : %d - end : %d\n", old_sbrk, old_sbrk + size);
   return 0;
 }
 

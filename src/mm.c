@@ -86,6 +86,7 @@ int vmap_page_range(struct pcb_t *caller, // process call
               struct vm_rg_struct *ret_rg)// return mapped region, the real mapped fp
 {                                         // no guarantee all given pages are mapped
     //uint32_t * pte = malloc(sizeof(uint32_t));
+    //printf("vmap_page_range exec\n");
     struct framephy_struct *fpit = malloc(sizeof(struct framephy_struct));
     //int  fpn;
     int pgit = 0;
@@ -139,7 +140,7 @@ int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struc
 {
   int pgit, fpn;
   //struct framephy_struct *newfp_str;
-
+  //printf("alloc_pages_range\n");
   for(pgit = 0; pgit < req_pgnum; pgit++)
   {
     if(MEMPHY_get_freefp(caller->mram, &fpn) == 0)
@@ -179,6 +180,7 @@ int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int inc
    *in endless procedure of swap-off to get frame and we have not provide 
    *duplicate control mechanism, keep it simple
    */
+  printf("vm_map_ram\n");
   ret_alloc = alloc_pages_range(caller, incpgnum, &frm_lst);
 
   if (ret_alloc < 0 && ret_alloc != -3000)
