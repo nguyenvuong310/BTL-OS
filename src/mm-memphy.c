@@ -6,7 +6,7 @@
 
 #include "mm.h"
 #include <stdlib.h>
-#include <stdio.h>
+#include <stdio.h>   //ADDING BY STUDENT
 /*
  *  MEMPHY_mv_csr - move MEMPHY cursor
  *  @mp: memphy struct
@@ -42,7 +42,7 @@ int MEMPHY_seq_read(struct memphy_struct *mp, int addr, BYTE *value)
 
    MEMPHY_mv_csr(mp, addr);
    *value = (BYTE) mp->storage[addr];
-   printf("check value %d\n", *value);  
+
    return 0;
 }
 
@@ -56,11 +56,9 @@ int MEMPHY_read(struct memphy_struct * mp, int addr, BYTE *value)
 {
    if (mp == NULL)
      return -1;
-   
-   if (mp->rdmflg){
+
+   if (mp->rdmflg)
       *value = mp->storage[addr];
-   }
-      
    else /* Sequential access device */
       return MEMPHY_seq_read(mp, addr, value);
 
@@ -84,7 +82,7 @@ int MEMPHY_seq_write(struct memphy_struct * mp, int addr, BYTE value)
 
    MEMPHY_mv_csr(mp, addr);
    mp->storage[addr] = value;
-   printf("check value %d\n", value);
+
    return 0;
 }
 
@@ -99,12 +97,11 @@ int MEMPHY_write(struct memphy_struct * mp, int addr, BYTE data)
    if (mp == NULL)
      return -1;
 
-   if (mp->rdmflg){
+   if (mp->rdmflg)
       mp->storage[addr] = data;
-   }
-    
    else /* Sequential access device */
       return MEMPHY_seq_write(mp, addr, data);
+
    return 0;
 }
 
@@ -140,6 +137,7 @@ int MEMPHY_format(struct memphy_struct *mp, int pagesz)
     return 0;
 }
 
+
 int MEMPHY_get_freefp(struct memphy_struct *mp, int *retfpn)
 {
    struct framephy_struct *fp = mp->free_fp_list;
@@ -160,12 +158,17 @@ int MEMPHY_get_freefp(struct memphy_struct *mp, int *retfpn)
 
 int MEMPHY_dump(struct memphy_struct * mp)
 {
-    /*TODO dump memphy contnt mp->storage 
+    /*TODO dump memphy content mp->storage 
      *     for tracing the memory content
      */
-    
- 
-
+    printf("=====MEMPHY_DUMP EXCEPT ADDRESS HAS VALUE ZERO=====\n");
+    char s1[] = "ADDRESS";
+    char s2[] = "VALUE";
+    printf("%8s|%6s\n", s1, s2);
+    for (int i = 0; i < mp->maxsz; i++) {
+        if (mp->storage[i] != 0)
+            printf("%08x: %d\n", i ,mp->storage[i]);
+    }
     return 0;
 }
 
