@@ -19,6 +19,9 @@ int init_pte(uint32_t *pte,
              int swptyp, // swap type
              int swpoff) //swap offset
 {
+#ifdef CHECK        
+        printf("init_pte - page table entry\n");
+#endif
     if (pre != 0) {
         if (swp == 0) { // Non swap ~ page online
             if (fpn < 0)
@@ -51,6 +54,9 @@ int init_pte(uint32_t *pte,
  */
 int pte_set_swap(uint32_t *pte, int swptyp, int swpoff)
 {
+#ifdef CHECK        
+        printf("Set PTE entry for swapped page\n");
+#endif
   SETBIT(*pte, PAGING_PTE_PRESENT_MASK);
   SETBIT(*pte, PAGING_PTE_SWAPPED_MASK);
 
@@ -67,6 +73,9 @@ int pte_set_swap(uint32_t *pte, int swptyp, int swpoff)
  */
 int pte_set_fpn(uint32_t *pte, int fpn)
 {
+#ifdef CHECK        
+        printf("Set PTE entry for on-line page\n");
+#endif
   SETBIT(*pte, PAGING_PTE_PRESENT_MASK);
   CLRBIT(*pte, PAGING_PTE_SWAPPED_MASK);
 
@@ -85,8 +94,9 @@ int vmap_page_range(struct pcb_t *caller, // process call
            struct framephy_struct *frames,// list of the mapped frames
               struct vm_rg_struct *ret_rg)// return mapped region, the real mapped fp
 {                                         // no guarantee all given pages are mapped
-    //uint32_t * pte = malloc(sizeof(uint32_t));
-    //printf("vmap_page_range exec\n");
+#ifdef CHECK        
+        printf("vmap_page_range\n");
+#endif
     struct framephy_struct *fpit = malloc(sizeof(struct framephy_struct));
     //int  fpn;
     int pgit = 0;
@@ -104,6 +114,7 @@ int vmap_page_range(struct pcb_t *caller, // process call
     ret_rg->rg_end = addr + pgnum * PAGING_PAGESZ;
     for (; pgit < pgnum; pgit++){
         if (pgn + pgit >= MAX_NO_PGTBL) return -1;
+
         uint32_t *pte = &pgtbl[pgn + pgit];
         if (fpit->fp_next == NULL) break;
         int fpn = fpit->fp_next->fpn;
@@ -138,6 +149,9 @@ int vmap_page_range(struct pcb_t *caller, // process call
  */
 int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struct** frm_lst)
 {
+#ifdef CHECK        
+        printf("alloc_pages_range\n");
+#endif
   int pgit, fpn;
   //struct framephy_struct *newfp_str;
   //printf("alloc_pages_range\n");
@@ -170,6 +184,9 @@ int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struc
  */
 int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int incpgnum, struct vm_rg_struct *ret_rg)
 {
+#ifdef CHECK        
+        printf("vm_map_ram\n");
+#endif
   struct framephy_struct *frm_lst = NULL;
   int ret_alloc;
 
@@ -180,7 +197,7 @@ int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int inc
    *in endless procedure of swap-off to get frame and we have not provide 
    *duplicate control mechanism, keep it simple
    */
-  printf("vm_map_ram\n");
+  //printf("vm_map_ram\n");
   ret_alloc = alloc_pages_range(caller, incpgnum, &frm_lst);
 
   if (ret_alloc < 0 && ret_alloc != -3000)
@@ -211,6 +228,9 @@ int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int inc
 int __swap_cp_page(struct memphy_struct *mpsrc, int srcfpn,
                 struct memphy_struct *mpdst, int dstfpn) 
 {
+#ifdef CHECK        
+        printf("__swap_cp_page\n");
+#endif
   int cellidx;
   int addrsrc,addrdst;
   for(cellidx = 0; cellidx < PAGING_PAGESZ; cellidx++)
@@ -233,6 +253,9 @@ int __swap_cp_page(struct memphy_struct *mpsrc, int srcfpn,
  */
 int init_mm(struct mm_struct *mm, struct pcb_t *caller)
 {
+#ifdef CHECK        
+        printf("init_mm\n");
+#endif
   struct vm_area_struct * vma = malloc(sizeof(struct vm_area_struct));
 
   mm->pgd = malloc(MAX_NO_PGTBL * sizeof(uint32_t));
@@ -254,6 +277,9 @@ int init_mm(struct mm_struct *mm, struct pcb_t *caller)
 
 struct vm_rg_struct* init_vm_rg(int rg_start, int rg_end)
 {
+#ifdef CHECK        
+        printf("init_vm_rg\n");
+#endif
   struct vm_rg_struct *rgnode = malloc(sizeof(struct vm_rg_struct));
 
   rgnode->rg_start = rg_start;
@@ -265,6 +291,9 @@ struct vm_rg_struct* init_vm_rg(int rg_start, int rg_end)
 
 int enlist_vm_rg_node(struct vm_rg_struct **rglist, struct vm_rg_struct* rgnode)
 {
+#ifdef CHECK        
+        printf("enlist_vm_rg_node\n");
+#endif
   rgnode->rg_next = *rglist;
   *rglist = rgnode;
 
@@ -273,6 +302,9 @@ int enlist_vm_rg_node(struct vm_rg_struct **rglist, struct vm_rg_struct* rgnode)
 
 int enlist_pgn_node(struct pgn_t **plist, int pgn)
 {
+#ifdef CHECK        
+        printf("enlist_pgn_node\n");
+#endif
   struct pgn_t* pnode = malloc(sizeof(struct pgn_t));
 
   pnode->pgn = pgn;
