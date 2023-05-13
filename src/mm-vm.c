@@ -195,7 +195,9 @@ int pgfree_data(struct pcb_t *proc, uint32_t reg_index)
 int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
 {
     uint32_t pte = mm->pgd[pgn];
- 
+#ifdef CHECK
+        printf("mm->pgd[%d] = %08x\n", pgn, pte);
+#endif  
     if (!PAGING_PAGE_PRESENT(pte))
     { /* Page is not online, make it actively living */
 #ifdef CHECK
@@ -236,7 +238,9 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
     }
 
     *fpn = PAGING_FPN(pte);
-
+#ifdef CHECK
+        printf("PAGING_FPN(%08x) - fpn = %d\n", pte, *fpn);
+#endif  
     return 0;
 }
 
@@ -338,7 +342,10 @@ int pgread(
 #ifdef PAGETBL_DUMP
   print_pgtbl(proc, 0, -1); //print max TBL
 #endif
+  printf("MEM RAM ");
   MEMPHY_dump(proc->mram);
+  printf("MEM SWAP ");
+  MEMPHY_dump(proc->active_mswp);
 #endif
   return val;
 }
@@ -363,7 +370,7 @@ int __write(struct pcb_t *caller, int vmaid, int rgid, int offset, BYTE value)
     }
 
     //  STUDENT
-    if (currg->rg_start + offset < currg->rg_end)  
+    if (currg->rg_start + offset <= currg->rg_end)  
         pg_setval(caller->mm, currg->rg_start + offset, value, caller);
     else {
         printf("Segmentation fault: Invalid offset to write!\n");
@@ -387,7 +394,11 @@ int pgwrite(
 #ifdef PAGETBL_DUMP
     print_pgtbl(proc, 0, -1); //print max TBL
 #endif
-    MEMPHY_dump(proc->mram);
+  printf("MEM RAM ");
+  MEMPHY_dump(proc->mram);
+  printf("\n");
+  printf("MEM SWAP ");
+  MEMPHY_dump(proc->active_mswp);
 #endif
     return __write(proc, 0, destination, offset, data);
 }

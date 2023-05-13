@@ -115,10 +115,11 @@ int MEMPHY_write(struct memphy_struct * mp, int addr, BYTE data)
 int MEMPHY_format(struct memphy_struct *mp, int pagesz)
 {
     /* This setting come with fixed constant PAGESZ */
-#ifdef CHECK        
-        printf("MEMPHY_format\n");
-#endif
+
     int numfp = mp->maxsz / pagesz;
+// #ifdef CHECK        
+//         printf("MEMPHY_format with maxsize = %d, pageSize = %d\n", mp->maxsz, pagesz);
+// #endif
     struct framephy_struct *newfst, *fst;
     int iter = 0;
 
@@ -170,9 +171,9 @@ int MEMPHY_dump(struct memphy_struct * mp)
     /*TODO dump memphy content mp->storage 
      *     for tracing the memory content
      */
-    printf("\nMEMPHY_DUMP EXCEPT ADDRESS HAS VALUE ZERO");
+    printf("EXCEPT ADDRESS HAS VALUE ZERO");
     printf("\n--------------------\n");
-    char s1[] = "RAM";
+    char s1[] = "ADDRESS";
     char s2[] = "VALUE";
     printf("%6s | %6s\n", s1, s2);
     printf("--------------------\n");

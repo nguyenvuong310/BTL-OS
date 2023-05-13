@@ -55,14 +55,19 @@ int init_pte(uint32_t *pte,
 int pte_set_swap(uint32_t *pte, int swptyp, int swpoff)
 {
 #ifdef CHECK        
-        printf("Set PTE entry for swapped page\n");
+        printf("pte_set_swap - Set PTE entry for swapped page (pte = %08x, swptyp = %d, swpoff = %d)\n", *pte, swptyp, swpoff);
 #endif
   SETBIT(*pte, PAGING_PTE_PRESENT_MASK);
   SETBIT(*pte, PAGING_PTE_SWAPPED_MASK);
 
   SETVAL(*pte, swptyp, PAGING_PTE_SWPTYP_MASK, PAGING_PTE_SWPTYP_LOBIT);
+#ifdef CHECK        
+        printf("SETVAL pte_set_swap type(pte = %08x, swptyp = %d)\n", *pte, swptyp);
+#endif
   SETVAL(*pte, swpoff, PAGING_PTE_SWPOFF_MASK, PAGING_PTE_SWPOFF_LOBIT);
-
+#ifdef CHECK        
+        printf("SETVAL pte_set_swap (pte = %08x, swptyp = %d, swpoff = %d)\n", *pte, swptyp, swpoff);
+#endif
   return 0;
 }
 
@@ -74,13 +79,15 @@ int pte_set_swap(uint32_t *pte, int swptyp, int swpoff)
 int pte_set_fpn(uint32_t *pte, int fpn)
 {
 #ifdef CHECK        
-        printf("Set PTE entry for on-line page\n");
+        printf("pte_set_fpn - Set PTE entry for on-line page (pte = %08x, fpn = %d)\n", *pte, fpn);
 #endif
   SETBIT(*pte, PAGING_PTE_PRESENT_MASK);
   CLRBIT(*pte, PAGING_PTE_SWAPPED_MASK);
 
   SETVAL(*pte, fpn, PAGING_PTE_FPN_MASK, PAGING_PTE_FPN_LOBIT); 
-
+#ifdef CHECK        
+    printf("SETVAL PT entry (pte = %08x, fpn = %d)\n", *pte, fpn);
+#endif
   return 0;
 }
 
@@ -113,8 +120,16 @@ int vmap_page_range(struct pcb_t *caller, // process call
     uint32_t* pgtbl = caller->mm->pgd;
     ret_rg->rg_end = addr + pgnum * PAGING_PAGESZ;
     for (; pgit < pgnum; pgit++){
-        if (pgn + pgit >= MAX_NO_PGTBL) return -1;
-
+        //check size page table 
+#ifdef CHECK
+      printf("RAM\n");
+#endif
+        if (pgn + pgit >= MAX_NO_PGTBL){
+#ifdef CHECK
+            printf("Over max size page table\n");
+#endif
+            return -1;
+        } 
         uint32_t *pte = &pgtbl[pgn + pgit];
         if (fpit->fp_next == NULL) break;
         int fpn = fpit->fp_next->fpn;
@@ -126,10 +141,14 @@ int vmap_page_range(struct pcb_t *caller, // process call
         * Enqueue new usage page */
         enlist_pgn_node(&caller->mm->fifo_pgn, pgn+pgit);
     }
+    //swap if ram full frame
     for (; pgit < pgnum; pgit++){
+#ifdef CHECK
+        printf("RAM FULL - MOVE TO SWAP\n");
+#endif
         if (pgn + pgit >= MAX_NO_PGTBL) return -1;
         uint32_t *pte = &pgtbl[pgn + pgit];
-        int swpoff = 0;
+        int swpoff;
         if (MEMPHY_get_freefp(caller->active_mswp, &swpoff) == 0){
             pte_set_swap(pte, 0, swpoff);
         } else {
@@ -168,7 +187,6 @@ int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struc
       return -3000;
    } 
  }
-
   return 0;
 }
 
@@ -200,7 +218,7 @@ int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int inc
   //printf("vm_map_ram\n");
   ret_alloc = alloc_pages_range(caller, incpgnum, &frm_lst);
 
-  if (ret_alloc < 0 && ret_alloc != -3000)
+  if (ret_alloc != 0 && ret_alloc != -3000)
     return -1;
 
   /* Out of memory */
@@ -215,8 +233,6 @@ int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int inc
   /* it leaves the case of memory is enough but half in ram, half in swap
    * do the swaping all to swapper to get the all in ram */
   return vmap_page_range(caller, mapstart, incpgnum, frm_lst, ret_rg);
-
-//  return 0;
 }
 
 /* Swap copy content page from source frame to destination frame 

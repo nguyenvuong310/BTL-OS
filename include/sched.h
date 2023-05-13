@@ -12,6 +12,7 @@
 int queue_empty(void);
 
 void init_scheduler(void);
+void set_quantum_time(int time_slot);
 void finish_scheduler(void);
 
 /* Get the next process from ready queue */

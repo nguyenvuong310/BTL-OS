@@ -9,9 +9,13 @@ static struct queue_t ready_queue;
 static struct queue_t run_queue;
 static pthread_mutex_t queue_lock;
 
+
 #ifdef MLQ_SCHED
 static struct queue_t mlq_ready_queue[MAX_PRIO];
+//STUDENT
 int queue_slot[MAX_PRIO];
+int quantum_time;
+//STUDENT
 #endif
 
 int queue_empty(void) {
@@ -23,7 +27,11 @@ int queue_empty(void) {
 #endif
 	return (empty(&ready_queue) && empty(&run_queue));
 }
-
+//STUDENT
+void set_quantum_time(int time_slot){
+	quantum_time = time_slot;
+}
+//STUDENT
 void init_scheduler(void) {
 #ifdef MLQ_SCHED
     int i ;
@@ -51,19 +59,24 @@ struct pcb_t * get_mlq_proc(void) {
 	 * Remember to use lock to protect the queue.
 	 * */
 	unsigned long prio;
+	int notEmptyFull = 0;
 	pthread_mutex_lock(&queue_lock);
 	for (prio = 0; prio < MAX_PRIO; prio++){
-		if (!empty(&mlq_ready_queue[prio]) && queue_slot[prio] > 0){
-			proc = dequeue(&mlq_ready_queue[prio]);
-			queue_slot[prio]--;
-			break;
+		if (!empty(&mlq_ready_queue[prio]) ){
+			notEmptyFull = 1;
+			if (queue_slot[prio] > 0){
+				proc = dequeue(&mlq_ready_queue[prio]);
+				queue_slot[prio] -= quantum_time;
+				break;
+			}
+		}
+		if (notEmptyFull &&  prio == MAX_PRIO - 1 && proc == NULL ){
+			for (int i = 0; i < MAX_PRIO; i++){
+					queue_slot[i] = MAX_PRIO - i;
+				}
+			prio = -1; 
 		}
 	}
-	if (prio == MAX_PRIO){
-		for (int i = 0; i < MAX_PRIO; i ++){
-			queue_slot[i] = MAX_PRIO - i;
-		}
-	} 
 	pthread_mutex_unlock(&queue_lock);
 	return proc;	
 }
