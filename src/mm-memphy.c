@@ -59,7 +59,9 @@ int MEMPHY_read(struct memphy_struct * mp, int addr, BYTE *value)
 {
    if (mp == NULL)
      return -1;
-
+// #ifdef CHECK
+//    printf("MEMPHY_read - with addr = %08x, value = %d\n ", addr, *value);
+// #endif   
    if (mp->rdmflg)
       *value = mp->storage[addr];
    else /* Sequential access device */
@@ -100,8 +102,13 @@ int MEMPHY_write(struct memphy_struct * mp, int addr, BYTE data)
    if (mp == NULL)
      return -1;
 
-   if (mp->rdmflg)
+   if (mp->rdmflg){
       mp->storage[addr] = data;
+// #ifdef CHECK
+//       printf("MEMPHY_write with mp->storage[%08x] = %d\n", addr, data);
+// #endif
+   }
+      
    else /* Sequential access device */
       return MEMPHY_seq_write(mp, addr, data);
 
@@ -117,9 +124,9 @@ int MEMPHY_format(struct memphy_struct *mp, int pagesz)
     /* This setting come with fixed constant PAGESZ */
 
     int numfp = mp->maxsz / pagesz;
-// #ifdef CHECK        
-//         printf("MEMPHY_format with maxsize = %d, pageSize = %d\n", mp->maxsz, pagesz);
-// #endif
+#ifdef CHECK        
+        printf("MEMPHY_format with maxsize = %d, pageSize = %d, numfp = %d\n", mp->maxsz, pagesz, numfp);
+#endif
     struct framephy_struct *newfst, *fst;
     int iter = 0;
 
@@ -171,15 +178,17 @@ int MEMPHY_dump(struct memphy_struct * mp)
     /*TODO dump memphy content mp->storage 
      *     for tracing the memory content
      */
+   
     printf("EXCEPT ADDRESS HAS VALUE ZERO");
     printf("\n--------------------\n");
     char s1[] = "ADDRESS";
     char s2[] = "VALUE";
-    printf("%6s | %6s\n", s1, s2);
+    char s3[] = "FRAME";
+    printf("%6s | %6s | %4s\n", s1, s2, s3);
     printf("--------------------\n");
     for (int i = 0; i < mp->maxsz; i++) {
         if (mp->storage[i] != 0)
-            printf("%08x: %d\n", i ,mp->storage[i]);
+            printf("%08x|   %d   | %d\n", i ,mp->storage[i], i / PAGING_PAGESZ);
     }
    printf("--------------------\n");
    printf("\n");

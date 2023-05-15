@@ -87,6 +87,7 @@ int pte_set_fpn(uint32_t *pte, int fpn)
   SETVAL(*pte, fpn, PAGING_PTE_FPN_MASK, PAGING_PTE_FPN_LOBIT); 
 #ifdef CHECK        
     printf("SETVAL PT entry (pte = %08x, fpn = %d)\n", *pte, fpn);
+    printf("PAGING_FPN(%d) = %d\n",*pte, PAGING_FPN(*pte));  
 #endif
   return 0;
 }
@@ -102,7 +103,7 @@ int vmap_page_range(struct pcb_t *caller, // process call
               struct vm_rg_struct *ret_rg)// return mapped region, the real mapped fp
 {                                         // no guarantee all given pages are mapped
 #ifdef CHECK        
-        printf("vmap_page_range\n");
+        printf("vmap_page_range with addr = %d\n", addr);
 #endif
     struct framephy_struct *fpit = malloc(sizeof(struct framephy_struct));
     //int  fpn;
@@ -122,7 +123,7 @@ int vmap_page_range(struct pcb_t *caller, // process call
     for (; pgit < pgnum; pgit++){
         //check size page table 
 #ifdef CHECK
-      printf("RAM\n");
+      printf("RAM with PAGING_PGN(%d) = %d\n", addr, pgn);
 #endif
         if (pgn + pgit >= MAX_NO_PGTBL){
 #ifdef CHECK
@@ -130,8 +131,11 @@ int vmap_page_range(struct pcb_t *caller, // process call
 #endif
             return -1;
         } 
-        uint32_t *pte = &pgtbl[pgn + pgit];
+
         if (fpit->fp_next == NULL) break;
+        
+        uint32_t *pte = &pgtbl[pgn + pgit];
+        
         int fpn = fpit->fp_next->fpn;
         pte_set_fpn(pte, fpn);
 
@@ -139,23 +143,23 @@ int vmap_page_range(struct pcb_t *caller, // process call
 
         /* Tracking for later page replacement activities (if needed)
         * Enqueue new usage page */
-        enlist_pgn_node(&caller->mm->fifo_pgn, pgn+pgit);
+        enlist_pgn_node(&caller->mm->fifo_pgn, pgn + pgit);
     }
     //swap if ram full frame
-    for (; pgit < pgnum; pgit++){
-#ifdef CHECK
-        printf("RAM FULL - MOVE TO SWAP\n");
-#endif
-        if (pgn + pgit >= MAX_NO_PGTBL) return -1;
-        uint32_t *pte = &pgtbl[pgn + pgit];
-        int swpoff;
-        if (MEMPHY_get_freefp(caller->active_mswp, &swpoff) == 0){
-            pte_set_swap(pte, 0, swpoff);
-        } else {
-            printf("Out of memory\n");
-            return -3000;
-        }
-    }
+//     for (; pgit < pgnum; pgit++){
+// #ifdef CHECK
+//         printf("RAM FULL - MOVE TO SWAP\n");
+// #endif
+//         if (pgn + pgit >= MAX_NO_PGTBL) return -1;
+//         uint32_t *pte = &pgtbl[pgn + pgit];
+//         int swpoff;
+//         if (MEMPHY_get_freefp(caller->active_mswp, &swpoff) == 0){
+//             pte_set_swap(pte, 0, swpoff);
+//         } else {
+//             printf("Out of memory\n");
+//             return -3000;
+//         }
+//     }
 
   return 0;
 }
@@ -184,7 +188,30 @@ int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struc
       new_frame->owner = caller->mm;
       *frm_lst = new_frame;
    } else {  // ERROR CODE of obtaining somes but not enough frames
-      return -3000;
+      int vicpgn, swfpn;
+      int vicfpn;
+
+      /* Get victim frame from victim page*/
+      find_victim_page(caller->mm,&vicpgn);
+
+      vicfpn = PAGING_FPN(caller->mm->pgd[vicpgn]);
+#ifdef CHECK      
+        printf("caller->mm->pgd[%d] = %08x\n", vicpgn, caller->mm->pgd[vicpgn]); 
+        printf("PAGING_FPN(caller->mm->pgd[%08x]) = %d\n", caller->mm->pgd[vicpgn], vicfpn);  
+        printf("Copy victim frame to swap with vicpgn = %d, vicfpn = %d\n",vicpgn, vicfpn);
+#endif
+      /* Get free frame in MEMSWP */
+      if (MEMPHY_get_freefp(caller->active_mswp, &swfpn) != 0) return -3000;
+      /* Copy victim frame to swap */
+      __swap_cp_page(caller->mram, vicfpn, caller->active_mswp, swfpn);
+      /* Update page table */
+      pte_set_swap(&caller->mm->pgd[vicpgn], 0, swfpn);
+      /* Update frame table */
+      struct framephy_struct *new_frame = malloc(sizeof(struct framephy_struct));
+      new_frame->fpn = vicfpn;
+      new_frame->fp_next = *frm_lst;
+      new_frame->owner = caller->mm;
+      *frm_lst = new_frame;
    } 
  }
   return 0;
@@ -222,17 +249,18 @@ int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int inc
     return -1;
 
   /* Out of memory */
-//    if (ret_alloc == -3000)
-//    {
+  if (ret_alloc == -3000)
+{
 #ifdef MMDBG
         printf("OOM: vm_map_ram out of memory \n");
 #endif
-//        return -1;
-//    }
+        return -1;
+}
 
   /* it leaves the case of memory is enough but half in ram, half in swap
    * do the swaping all to swapper to get the all in ram */
-  return vmap_page_range(caller, mapstart, incpgnum, frm_lst, ret_rg);
+  vmap_page_range(caller, mapstart, incpgnum, frm_lst, ret_rg);
+  return 0;
 }
 
 /* Swap copy content page from source frame to destination frame 
@@ -244,9 +272,9 @@ int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int inc
 int __swap_cp_page(struct memphy_struct *mpsrc, int srcfpn,
                 struct memphy_struct *mpdst, int dstfpn) 
 {
-#ifdef CHECK        
-        printf("__swap_cp_page\n");
-#endif
+// #ifdef CHECK        
+//         printf("__swap_cp_page\n");
+// #endif
   int cellidx;
   int addrsrc,addrdst;
   for(cellidx = 0; cellidx < PAGING_PAGESZ; cellidx++)
@@ -319,7 +347,7 @@ int enlist_vm_rg_node(struct vm_rg_struct **rglist, struct vm_rg_struct* rgnode)
 int enlist_pgn_node(struct pgn_t **plist, int pgn)
 {
 #ifdef CHECK        
-        printf("enlist_pgn_node\n");
+        printf("enlist_pgn_node with pgn = %d\n", pgn);
 #endif
   struct pgn_t* pnode = malloc(sizeof(struct pgn_t));
 
